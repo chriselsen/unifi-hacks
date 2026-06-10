@@ -26,7 +26,7 @@ Two approaches are documented. Choose based on your requirements:
 | **Internet sees** | ISP GUA normally; cellular during failover | ISP GUA normally; cellular during failover |
 | **Android** | Requires WiFi toggle to recover ⚠️ | Fully transparent ✓ |
 | **Complexity** | Lower | Higher |
-| **Status** | ✅ Implemented | 🚧 Architecture documented |
+| **Status** | ✅ Implemented and tested | 🚧 Architecture documented |
 
 ### [Approach 1: ISP-as-primary](./approach-1-att-primary/)
 
