@@ -42,7 +42,7 @@ Failover (primary WAN down):
 ```
 
 **During failover, clients see no change whatsoever.** The same PI GUA,
-the same default router (`fe80::9c05:...`), the same DNS. Only the border
+the same default router, the same DNS. Only the border
 translation changes. Android, Windows, Linux, macOS — all transparent.
 
 ## What the Internet Sees
@@ -88,9 +88,9 @@ Everything from Approach 1, plus:
    failover as in Approach 1)
 3. **NPTv6 rule** — stateless 1:1 translation:
    ```
-   ip6tables -t nat -A POSTROUTING -s 2001:db8:fe::/64 -o eth4.0 \
+   ip6tables -t nat -A POSTROUTING -s 2001:db8:fe::/64 -o <WAN_IF> \
        -j NETMAP --to <ISP /64>
-   ip6tables -t nat -A PREROUTING -d <ISP /64> -i eth4.0 \
+   ip6tables -t nat -A PREROUTING -d <ISP /64> -i <WAN_IF> \
        -j NETMAP --to 2001:db8:fe::/64
    ```
 4. **Failover switch** — when primary WAN goes down, remove NPTv6 rules

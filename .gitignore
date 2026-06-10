@@ -1,0 +1,8 @@
+# Editor temp files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test logs
+/tmp/failover-test-*.log

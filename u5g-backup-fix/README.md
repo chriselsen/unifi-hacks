@@ -118,9 +118,9 @@ UCG firmware upgrades wipe the crontab. Create a systemd service to restore
 it automatically on every boot:
 
 ```bash
-cat > /etc/systemd/system/restore-crontab.service << 'EOF'
+cat > /etc/systemd/system/restore-u5g-crontab.service << 'EOF'
 [Unit]
-Description=Restore crontab entries after firmware upgrade
+Description=Restore U5G patch crontab entry after firmware upgrade
 After=cron.service
 Requires=cron.service
 
@@ -135,8 +135,13 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable restore-crontab.service
+systemctl enable restore-u5g-crontab.service
 ```
+
+> **Note:** If you are also following the
+> [ucg-ipv6-failover](../ucg-ipv6-failover/approach-1-att-primary/) guide,
+> skip this step — the `restore-crontab.service` and `restore-crontab.sh`
+> from that guide already manage both crontab entries.
 
 ## Verify It Works
 

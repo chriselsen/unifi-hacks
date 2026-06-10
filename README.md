@@ -89,7 +89,7 @@ secondary WAN. Two approaches are documented:
 - UniFi Cloud Gateway Ultra (UCG) running UniFi OS 4.x / firmware 5.x
 - UniFi 5G Backup (U5G-US) adopted in failover mode
 - SSH access to both devices
-- A Provider Independent (PI) IPv6 /48 block from your RIR (ARIN, RIPE, APNIC)
+- At minimum a /64 from a Provider Independent (PI) IPv6 block from your RIR (ARIN, RIPE, APNIC)
 - The first /64 of your PI block available for use (e.g. `2001:db8:fe::/64`)
 
 > **Note on PI space:** If you do not have PI space, Approach 1 still works

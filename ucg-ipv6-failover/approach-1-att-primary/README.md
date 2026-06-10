@@ -8,7 +8,7 @@ automatically.
 
 ```
 Normal operation:
-  br0 client (ISP GUA 2600:x::/64)
+  br0 client (ISP GUA <ISP /64>)
     → iif br0 → table 201.eth4.0
     → primary ISP WAN
 
@@ -43,6 +43,13 @@ Edit the variables at the top of each script before deploying:
 | `BR_WAN` | UCG WAN interface | `eth4.0` |
 | `BR_LAN` | UCG primary LAN bridge | `br0` |
 | `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` |
+| `U5GBACKUP_LL` | U5GBackup link-local on gre1 | `fe80::c0a8:1eda` |
+
+> **Note on `U5GBACKUP_LL`:** Derived from the U5GBackup LAN IP.
+> e.g. `192.168.1.218` maps to `fe80::c0a8:01da` (convert each octet to hex:
+> c0=192, a8=168, 01=1, da=218). Run
+> `ip -6 addr show dev gre1 | grep fe80` on the UCG after the
+> u5g-backup-fix is applied to confirm the exact value.
 
 ## Setup
 
@@ -81,11 +88,10 @@ cp /etc/ipv6-policy-routes/setup-ipv6-policy-routes.sh \
 
 ```bash
 scp systemd/*.service root@<UCG_IP>:/etc/systemd/system/
-ssh root@<UCG_IP> "systemctl daemon-reload && \
-    systemctl enable --now ipv6-policy-routes.service \
-    gre1-prefix-monitor.service \
-    reinstall-radvd.service \
-    restore-crontab.service"
+ssh root@<UCG_IP> "systemctl daemon-reload"
+for svc in ipv6-policy-routes gre1-prefix-monitor reinstall-radvd restore-crontab; do
+    ssh root@<UCG_IP> "systemctl enable --now ${svc}.service"
+done
 ```
 
 ### Step 4 — Apply initial configuration
@@ -96,13 +102,13 @@ ssh root@<UCG_IP> "sh /etc/ipv6-policy-routes/setup.sh"
 
 ### Step 5 — Add crontab entry on UCG
 
-```bash
-ssh root@<UCG_IP> "crontab -e"
-```
+The `restore-crontab.service` deployed in Step 3 restores crontab entries
+automatically after every firmware upgrade. For the initial setup, add the
+entry now:
 
-Add:
-```
-* * * * * /etc/ipv6-policy-routes/ipv6-watchdog.sh
+```bash
+ssh root@<UCG_IP> "(crontab -l 2>/dev/null; \
+    echo '* * * * * /etc/ipv6-policy-routes/ipv6-watchdog.sh') | crontab -"
 ```
 
 ### Step 6 — Configure UniFi UI

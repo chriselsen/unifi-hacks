@@ -99,7 +99,7 @@ backup ISP provides a different prefix than the primary.
 The fix: expose NAT66 SNAT and NPTv6 as options in the WAN failover
 configuration, applied automatically when a backup WAN becomes active.
 
-**4. Suppress ISP prefix RA during failover (alternative to fix #1)**
+**4. Suppress ISP prefix RA during failover (alternative to item 1 above)**
 
 If retaining the prefix during outage is not feasible, an alternative is
 to give user scripts an API hook to suppress or override `odhcpd`'s RA
