@@ -2,6 +2,63 @@
 
 Community guides for extending UniFi gateway functionality beyond what the UI exposes.
 
+## IPv6 Failover Is Not Optional
+
+Multi-WAN failover that works for IPv4 but silently drops IPv6 is not
+"partial support" — it is broken. Here's why.
+
+### IPv6 is no longer optional infrastructure
+
+IPv6 is not a future technology. It is the present:
+
+- Mobile carriers (T-Mobile, AT&T, Verizon, and virtually every carrier
+  globally) run IPv6 as their **primary** protocol. IPv4 on mobile networks
+  is provided via carrier-grade NAT (CGNAT) with 464XLAT translation — IPv4
+  is the compatibility layer, not the native path.
+- Content delivery networks (Google, Meta, Cloudflare, Akamai) serve the
+  majority of their traffic over IPv6. IPv6 paths are typically faster, with
+  lower latency and fewer NAT-induced connection failures.
+- An increasing number of services, APIs, and IoT platforms are IPv6-only
+  or advertise IPv6 as the preferred endpoint.
+
+When your failover WAN is a cellular link (as with the U5G Backup), it is
+almost certainly carrying IPv6 natively. Ignoring IPv6 failover means that
+your "backup" connection is working at reduced capacity from the moment it
+activates.
+
+### IPv4-only failover leaves half your network broken
+
+A gateway that fails over IPv4 but not IPv6 produces the worst of all
+outcomes: IPv6-capable applications try IPv6 first, fail silently, and
+then fall back to IPv4 — adding latency and connection setup time to every
+request. Users see degraded performance and unexplained timeouts, not a
+clear failure they can diagnose. The network appears to be "working" while
+actually being broken.
+
+### Why this is genuinely hard without BGP
+
+The correct enterprise solution to multi-homing and failover is BGP: announce
+your own Provider Independent (PI) prefix via multiple upstream providers, and
+let BGP routing converge when one path fails. This is how large organizations
+handle it and it is completely transparent to clients.
+
+BGP is not realistic for consumer or SMB setups:
+
+- Requires a PI address block from a Regional Internet Registry (ARIN, RIPE, etc.)
+- Requires BGP sessions with one or more ISPs — not offered on residential or
+  most business-class connections
+- Requires routing hardware and operational expertise beyond typical SMB budgets
+
+Without BGP, every approach to IPv6 multi-homing involves a tradeoff:
+clients either see a prefix change (disruptive), or address translation is
+applied at the border (NAT66/NPTv6, which breaks end-to-end transparency).
+There is no clean solution at the consumer/SMB level — only less-bad ones.
+
+The guides in this repo represent the current best achievable outcomes given
+these constraints, implemented on top of UniFi hardware that should be doing
+this natively. The feature requests included here describe what Ubiquiti needs
+to implement so that none of this manual configuration is necessary.
+
 ## Contents
 
 ### [u5g-backup-fix](./u5g-backup-fix/)
