@@ -182,7 +182,7 @@ ip -6 addr show dev gre1 | grep 'scope global'
 └── trigger-u5g-patch.sh       ← called by cron every minute
 
 /etc/systemd/system/
-└── restore-crontab.service    ← on UCG, restores crontab after firmware upgrade
+└── restore-u5g-crontab.service ← on UCG, restores crontab after firmware upgrade
 ```
 
 ## Notes

@@ -40,6 +40,7 @@ Edit the variables at the top of each script before deploying:
 | `VLAN_ID` | VLAN for cellular clients | `100` |
 | `VLAN_SUBNET` | Subnet for cellular VLAN | `192.168.100.0/24` |
 | `PI_PREFIX` | Your PI /64 | `2001:db8:fe::/64` |
+| `ULA_PREFIX` | ULA prefix for cellular VLAN | `fd64:100::/64` |
 | `BR_WAN` | UCG WAN interface | `eth4.0` |
 | `BR_LAN` | UCG primary LAN bridge | `br0` |
 | `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` (= `br${VLAN_ID}`) |
@@ -83,6 +84,11 @@ chmod +x /etc/ipv6-policy-routes/*.sh
 cp /etc/ipv6-policy-routes/setup-ipv6-policy-routes.sh \
    /etc/ipv6-policy-routes/setup.sh
 ```
+
+Edit each script and set the configuration variables at the top:
+- `setup-ipv6-policy-routes.sh` — `PI_PREFIX`, `VLAN_ID`, `ULA_PREFIX`, `U5GBACKUP_LL`
+- `gre1-prefix-monitor.sh` — `PI_PREFIX`, `VLAN_ID`, `U5GBACKUP_LL`
+- `restore-crontab.sh` — `U5GBACKUP_IP`, `SSH_KEY`
 
 ### Step 3 — Deploy systemd services to UCG
 

@@ -20,8 +20,7 @@ BR_CELLULAR="br${VLAN_ID}"      # Bridge interface for cellular VLAN
 BR_LAN="br0"                    # Bridge interface for primary LAN
 WAN_TABLE="201.eth4.0"          # UCG policy routing table for primary WAN
 U5GBACKUP_LL="fe80::c0a8:1eda" # U5GBackup link-local on gre1
-                                         # (derived from LAN IP: 192.168.x.y
-                                         #  → fe80::c0a8:xxxx where c0a8=192.168)
+                                 # Derived from LAN IP — see setup script comment
 
 CONF=/etc/radvd.conf
 FAILOVER_STATE=/run/gre1-monitor-failover

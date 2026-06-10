@@ -22,7 +22,9 @@ U5GBACKUP_LL="fe80::c0a8:1eda" # U5GBackup link-local on gre1
 # Replace net4_1 with your actual traffic route number if different
 IPSET="UBIOS_trafficroute_net4_1"
 IPSET6="UBIOS6trafficroute_net4_1"
-ULA_PREFIX="fd${VLAN_ID}::/64"  # ULA prefix for cellular VLAN (e.g. fd100::/64)
+ULA_PREFIX="fd64:100::/64"      # ULA prefix for cellular VLAN — set your own
+                                 # ULA prefixes use fd00::/8 + 40-bit random site ID
+                                 # Generate one at https://simpledns.plus/private-ipv6
 MARK="0x6b0000/0x7f0000"
 LOCAL_SET="UBIOS_local_zoned_subnets"
 
