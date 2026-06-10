@@ -15,7 +15,7 @@
 
 # --- Configuration ---
 PI_PREFIX="2001:db8:fe::/64"   # Your PI /64 — replace with your own
-BR_CELLULAR="br36"              # Bridge interface for cellular VLAN
+BR_CELLULAR="br100"             # Bridge interface for cellular VLAN
 BR_LAN="br0"                    # Bridge interface for primary LAN
 WAN_TABLE="201.eth4.0"          # UCG policy routing table for primary WAN
 U5GBACKUP_LINK_LOCAL="fe80::c0a8:1eda"  # U5GBackup link-local on gre1
@@ -119,7 +119,7 @@ print(str(ipaddress.ip_network('$GUA/64', strict=False)))
     logger -t gre1-prefix-monitor "ipset and $BR_CELLULAR route updated for $PREFIX"
 
     # Remove stale cellular prefixes from ipsets and routes
-    ULA_PREFIX=$(echo "$BR_CELLULAR" | sed 's/br/fd/')  # e.g. br36 → fd36::/64
+    ULA_PREFIX=$(echo "$BR_CELLULAR" | sed 's/br/fd/')  # e.g. br100 → fd100::/64
     for STALE in $(ipset list UBIOS6trafficroute_net4_1 \
                     | awk "/^[0-9a-f]/ && !/$ULA_PREFIX/ {print \$1}"); do
         [ "$STALE" = "$PREFIX" ] && continue

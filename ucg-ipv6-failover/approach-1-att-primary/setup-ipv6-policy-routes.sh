@@ -8,8 +8,8 @@
 
 # --- Configuration — edit these for your setup ---
 PI_PREFIX="2001:db8:fe::/64"   # Your PI /64 — replace with your own
-VLAN_ID="36"                    # Your cellular VLAN ID
-BR_CELLULAR="br${VLAN_ID}"     # Cellular VLAN bridge (e.g. br36)
+VLAN_ID="100"                   # Your cellular VLAN ID
+BR_CELLULAR="br${VLAN_ID}"     # Cellular VLAN bridge (e.g. br100)
 BR_LAN="br0"                    # Primary LAN bridge
 WAN_TABLE="201.eth4.0"          # UCG policy table for primary WAN
 GRE_TABLE="178.gre1"            # UCG policy table for cellular (gre1)
@@ -22,7 +22,7 @@ U5GBACKUP_LL="fe80::c0a8:1eda" # U5GBackup link-local on gre1
 # Replace net4_1 with your actual traffic route number if different
 IPSET="UBIOS_trafficroute_net4_1"
 IPSET6="UBIOS6trafficroute_net4_1"
-ULA_PREFIX="fd${VLAN_ID}::/64"  # ULA prefix for cellular VLAN (e.g. fd36::/64)
+ULA_PREFIX="fd${VLAN_ID}::/64"  # ULA prefix for cellular VLAN (e.g. fd100::/64)
 MARK="0x6b0000/0x7f0000"
 LOCAL_SET="UBIOS_local_zoned_subnets"
 
@@ -89,7 +89,7 @@ done
 
 # NAT66 on gre1 — use explicit SNAT to cellular GUA (not MASQUERADE).
 # MASQUERADE fails when gre1 GUA has preferred_lft=0 (deprecated for RFC 6724).
-# Excludes cellular GUA prefix (br36 clients route natively without NAT).
+# Excludes cellular GUA prefix (br<N> clients route natively without NAT).
 while ip6tables -t nat -D POSTROUTING -o gre1 -j MASQUERADE 2>/dev/null; do :; done
 while ip6tables -t nat -D POSTROUTING ! -s "$GUA_PREFIX" -o gre1 -j MASQUERADE 2>/dev/null; do :; done
 while ip6tables -t nat -D POSTROUTING ! -s "$GUA_PREFIX" -o gre1 -j SNAT --to-source "$GUA" 2>/dev/null; do :; done

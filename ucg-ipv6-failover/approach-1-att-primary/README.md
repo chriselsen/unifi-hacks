@@ -18,7 +18,7 @@ Failover (primary WAN down):
     → SNAT to cellular GUA
     → GRE tunnel → U5GBackup → cellular WAN
 
-br36 client (cellular GUA via radvd):
+br<N> client (cellular GUA via radvd):
   → fwmark 0x6b0000 → table 178.gre1
   → GRE tunnel → U5GBackup → cellular WAN (native, no NAT)
 ```
@@ -37,12 +37,12 @@ Edit the variables at the top of each script before deploying:
 |----------|-------------|---------|
 | `UCG_IP` | UCG LAN IP | `192.168.1.1` |
 | `U5GBACKUP_IP` | U5GBackup LAN IP | `192.168.1.218` |
-| `VLAN_ID` | VLAN for cellular clients | `36` |
-| `VLAN_SUBNET` | Subnet for cellular VLAN | `192.168.36.0/24` |
+| `VLAN_ID` | VLAN for cellular clients | `100` |
+| `VLAN_SUBNET` | Subnet for cellular VLAN | `192.168.100.0/24` |
 | `PI_PREFIX` | Your PI /64 | `2001:db8:fe::/64` |
 | `BR_WAN` | UCG WAN interface | `eth4.0` |
 | `BR_LAN` | UCG primary LAN bridge | `br0` |
-| `BR_CELLULAR` | UCG cellular VLAN bridge | `br36` |
+| `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` |
 
 ## Setup
 
