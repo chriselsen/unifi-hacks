@@ -60,8 +60,7 @@ policy routing rules. IPv6 equivalents must be added manually. The
 
 ## Related
 
-- [Ubiquiti Community: Feature Request — Fix IPv6 failover on UniFi 5G Backup](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup)
-- [Ubiquiti Community: U5G slow and won't pick up T-Mobile n41 band](https://community.ui.com/questions/U5G-slow-and-wont-pick-up-T-Mobile-n41-band)
+- [Ubiquiti Community: Feature Request — Fix IPv6 failover on UniFi 5G Backup](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219)
 
 ## License
 
