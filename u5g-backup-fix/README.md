@@ -190,6 +190,56 @@ ip -6 addr show dev gre1 | grep 'scope global'
 - The `/etc/ipv6-policy-routes/` directory on the UCG survives firmware upgrades
   because it is under `/etc/` on the Debian-based UniFi OS
 
+## What Ubiquiti Needs to Fix
+
+This entire workaround exists because of three bugs in a single firmware script:
+`activate_mbb_network_inet_interface.sh` on the U5G Backup. The fixes are
+trivial — two lines changed and one line commented out. Once Ubiquiti ships
+these changes, this script becomes unnecessary.
+
+**Bug 1: Wrong address type assigned to `gre1` in failover mode**
+
+The script assigns `$ipv6_ui_address` (a `/128` host address) to `gre1`.
+On a point-to-point interface a `/128` creates no subnet, so `odhcpd` finds
+nothing to advertise. It should assign `$ipv6_ui_prefix` (the `/64`) instead:
+
+```sh
+# Change this:
+ip -6 addr add "$ipv6_ui_address" dev "$INT_IF"
+# To this (in the failover block only):
+ip -6 addr add "$ipv6_ui_prefix" dev "$INT_IF"
+```
+
+**Bug 2: `IFF_MULTICAST` not set on `gre1`**
+
+`odhcpd` requires the multicast flag on an interface before it will send
+Router Advertisements on it. GRE interfaces don't have it by default:
+
+```sh
+# Add this line before odhcpd starts:
+ip link set "$TUN_IF" multicast on
+```
+
+**Bug 3: Blackhole route drops all forwarded IPv6 traffic**
+
+The script adds a blackhole route in table 3 that silently drops all IPv6
+traffic arriving on `gre1` from the parent gateway. It exists to prevent
+routing loops in primary internet mode but must not be added in failover mode:
+
+```sh
+# Comment out or remove this line in the failover block:
+# ip -6 route add table 3 blackhole $ipv6_ui_prefix metric 100500
+```
+
+These three changes are the complete fix. Everything else — `odhcpd`, the
+routing tables, the policy rules — is already correctly configured by the
+firmware. The parent gateway (UCG) also needs a minor update to accept RAs
+on `gre1` and add a fallback IPv6 default route via the tunnel, but that
+is straightforward once the U5G Backup is advertising correctly.
+
+A detailed write-up including logs and verification output has been posted
+to the [Ubiquiti Community forum](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219).
+
 ## Next Step
 
 With the U5GBackup correctly advertising IPv6 on `gre1`, the UCG can now
