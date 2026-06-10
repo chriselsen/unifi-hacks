@@ -38,10 +38,8 @@ Edit the variables at the top of each script before deploying:
 | `UCG_IP` | UCG LAN IP | `192.168.1.1` |
 | `U5GBACKUP_IP` | U5GBackup LAN IP | `192.168.1.218` |
 | `VLAN_ID` | VLAN for cellular clients | `100` |
-| `VLAN_SUBNET` | Subnet for cellular VLAN | `192.168.100.0/24` |
 | `PI_PREFIX` | Your PI /64 | `2001:db8:fe::/64` |
 | `ULA_PREFIX` | ULA prefix for cellular VLAN | `fd64:100::/64` |
-| `BR_WAN` | UCG WAN interface | `eth4.0` |
 | `BR_LAN` | UCG primary LAN bridge | `br0` |
 | `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` (= `br${VLAN_ID}`) |
 | `U5GBACKUP_LL` | U5GBackup link-local on gre1 | `fe80::c0a8:1eda` |
@@ -96,7 +94,7 @@ Edit each script and set the configuration variables at the top:
 scp systemd/*.service root@<UCG_IP>:/etc/systemd/system/
 ssh root@<UCG_IP> "systemctl daemon-reload"
 for svc in ipv6-policy-routes gre1-prefix-monitor reinstall-radvd restore-crontab; do
-    ssh root@<UCG_IP> "systemctl enable --now ${svc}.service"
+    ssh root@<UCG_IP> "systemctl enable --now \${svc}.service"
 done
 ```
 
@@ -113,8 +111,7 @@ automatically after every firmware upgrade. For the initial setup, add the
 entry now:
 
 ```bash
-ssh root@<UCG_IP> "(crontab -l 2>/dev/null; \
-    echo '* * * * * /etc/ipv6-policy-routes/ipv6-watchdog.sh') | crontab -"
+ssh root@<UCG_IP> 'ENTRY="* * * * * /etc/ipv6-policy-routes/ipv6-watchdog.sh"; (crontab -l 2>/dev/null | grep -v ipv6-watchdog; echo "$ENTRY") | crontab -'
 ```
 
 ### Step 6 — Configure UniFi UI
@@ -153,7 +150,7 @@ recovery. Run it from a machine on the LAN — the SSH session is
 unaffected since it routes via the LAN, not the WAN.
 
 ```bash
-# Edit UCG and NAS variables at the top first
+# Edit UCG variable at the top; NAS is optional (for client-side connectivity tests)
 chmod +x test-ipv6-failover.sh
 ./test-ipv6-failover.sh
 ```

@@ -90,7 +90,9 @@ secondary WAN. Two approaches are documented:
 - UniFi 5G Backup (U5G-US) adopted in failover mode
 - SSH access to both devices
 - At minimum a /64 from a Provider Independent (PI) IPv6 block from your RIR (ARIN, RIPE, APNIC)
-- The first /64 of your PI block available for use (e.g. `2001:db8:fe::/64`)
+- The first /64 of your PI block available for use
+  (**Note:** examples use `2001:db8:fe::/64` which is the RFC 3849 documentation
+  range — it cannot be used for real traffic. Replace with your actual PI /64.)
 
 > **Note on PI space:** If you do not have PI space, Approach 1 still works
 > for the primary failover path but without the extended coverage for new
@@ -99,7 +101,7 @@ secondary WAN. Two approaches are documented:
 
 ## Background
 
-The UniFi 5G Backup ships with two firmware bugs that prevent IPv6 from
+The UniFi 5G Backup has three firmware bugs that prevent IPv6 from
 working in failover mode:
 
 1. The `activate_ipv6()` function assigns a `/128` host address to the GRE
