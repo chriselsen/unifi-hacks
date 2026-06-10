@@ -109,11 +109,17 @@ Everything from Approach 1, plus:
 
 ## Known Limitations
 
-Even with Approach 2, one scenario remains that requires Ubiquiti's help:
-if Ubiquiti added a Ubiquiti firmware fix (keep DHCPv6-PD prefix alive during
-WAN outage), the PI-as-primary approach would become unnecessary — the
-primary ISP GUA would stay active during failover and clients would never
-notice anything changed, without any custom scripts.
+Approach 2 fully solves the Android default gateway issue and works well
+for all clients. However, it still requires custom scripts and PI address
+space.
 
-See the [feature requests](https://github.com/chriselsen/unifi-hacks) for
-details on what Ubiquiti should implement natively.
+The cleanest long-term solution would be for Ubiquiti to fix the root cause:
+when the primary WAN goes down, the UCG should keep advertising the primary
+ISP prefix to LAN clients rather than immediately withdrawing it. If that
+behavior were fixed, the primary ISP GUA would remain valid throughout the
+outage, the UCG would silently reroute traffic via the backup WAN, and
+clients — including Android — would never notice the failover at all.
+Neither Approach 1 nor Approach 2 would be necessary.
+
+This has been requested on the
+[Ubiquiti Community forum](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219).
