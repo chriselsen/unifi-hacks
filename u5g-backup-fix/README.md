@@ -54,8 +54,9 @@ cat /etc/ipv6-policy-routes/u5g-backup-key.pub
 
 ### Step 2 — Add the public key to the U5GBackup
 
-In the UniFi UI, go to **UniFi Devices → U5G Backup → Settings → SSH Keys**
-and paste the contents of `u5g-backup-key.pub`.
+In the UniFi UI, go to **UniFi Devices → Device Updates and Settings** (left
+bar, bottom) → **Device SSH Settings** (right bar, bottom) → **SSH Keys** and
+paste the contents of `u5g-backup-key.pub`.
 
 Verify it works:
 
