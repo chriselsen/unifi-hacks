@@ -9,7 +9,8 @@ StartLimitBurst=10
 
 [Service]
 Type=oneshot
-ExecStartPre=/usr/bin/dpkg -i /etc/ipv6-policy-routes/packages/radvd_1%%3a2.18-3_arm64.deb
+# Install cached radvd deb (wildcard via shell to handle any version)
+ExecStartPre=/bin/sh -c 'dpkg -i /etc/ipv6-policy-routes/packages/radvd*arm64.deb'
 ExecStart=/bin/systemctl start radvd
 ExecStartPost=/bin/systemctl enable radvd
 Restart=on-failure
