@@ -14,8 +14,10 @@ fundamental Android OS limitation:
 - Android does not send a Router Solicitation when it detects router loss
 - Android does not reliably add a new default router from unsolicited RAs
   when already in a "no router" state from the same source address
-- All network-side workarounds have been exhausted (see
-  [LESSONS-LEARNED](https://github.com/chriselsen/unifi-hacks) for details)
+- All network-side workarounds have been exhausted: separate router
+  link-local identity, SIGHUP on radvd recovery, multiple RS on failover,
+  PI prefix deprecation on recovery — none fully resolve the issue without
+  a WiFi toggle
 
 Approach 2 eliminates this limitation entirely by ensuring clients never
 experience a prefix or router change during failover.
