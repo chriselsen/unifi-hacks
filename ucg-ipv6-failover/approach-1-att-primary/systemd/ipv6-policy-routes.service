@@ -1,0 +1,12 @@
+[Unit]
+Description=IPv6 policy routing rules for gre1 traffic routes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/etc/ipv6-policy-routes/setup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

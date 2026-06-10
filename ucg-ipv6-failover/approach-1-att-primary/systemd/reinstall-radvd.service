@@ -1,0 +1,19 @@
+[Unit]
+Description=Reinstall radvd if wiped by firmware upgrade
+AssertPathExistsGlob=/etc/ipv6-policy-routes/packages/radvd*arm64.deb
+ConditionPathExists=!/usr/sbin/radvd
+After=network-online.target
+Requires=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/dpkg -i /etc/ipv6-policy-routes/packages/radvd_1%%3a2.18-3_arm64.deb
+ExecStart=/bin/systemctl start radvd
+ExecStartPost=/bin/systemctl enable radvd
+Restart=on-failure
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

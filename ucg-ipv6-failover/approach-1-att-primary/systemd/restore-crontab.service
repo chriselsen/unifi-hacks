@@ -1,0 +1,12 @@
+[Unit]
+Description=Restore crontab entries after firmware upgrade
+After=network-online.target cron.service
+Wants=cron.service
+
+[Service]
+Type=oneshot
+ExecStart=/etc/ipv6-policy-routes/restore-crontab.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Monitor gre1 IPv6 prefix changes and update radvd
+After=network-online.target ipv6-policy-routes.service
+Wants=network-online.target
+Requires=ipv6-policy-routes.service
+
+[Service]
+Type=simple
+ExecStart=/etc/ipv6-policy-routes/gre1-prefix-monitor.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
