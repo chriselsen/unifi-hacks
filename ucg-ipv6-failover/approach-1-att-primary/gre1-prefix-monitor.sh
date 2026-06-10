@@ -15,10 +15,11 @@
 
 # --- Configuration ---
 PI_PREFIX="2001:db8:fe::/64"   # Your PI /64 — replace with your own
-BR_CELLULAR="br100"             # Bridge interface for cellular VLAN
+VLAN_ID="100"                   # Your cellular VLAN ID
+BR_CELLULAR="br${VLAN_ID}"      # Bridge interface for cellular VLAN
 BR_LAN="br0"                    # Bridge interface for primary LAN
 WAN_TABLE="201.eth4.0"          # UCG policy routing table for primary WAN
-U5GBACKUP_LINK_LOCAL="fe80::c0a8:1eda"  # U5GBackup link-local on gre1
+U5GBACKUP_LL="fe80::c0a8:1eda" # U5GBackup link-local on gre1
                                          # (derived from LAN IP: 192.168.x.y
                                          #  → fe80::c0a8:xxxx where c0a8=192.168)
 

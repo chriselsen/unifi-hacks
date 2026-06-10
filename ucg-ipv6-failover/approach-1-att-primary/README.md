@@ -42,7 +42,7 @@ Edit the variables at the top of each script before deploying:
 | `PI_PREFIX` | Your PI /64 | `2001:db8:fe::/64` |
 | `BR_WAN` | UCG WAN interface | `eth4.0` |
 | `BR_LAN` | UCG primary LAN bridge | `br0` |
-| `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` |
+| `BR_CELLULAR` | UCG cellular VLAN bridge | `br100` (= `br${VLAN_ID}`) |
 | `U5GBACKUP_LL` | U5GBackup link-local on gre1 | `fe80::c0a8:1eda` |
 
 > **Note on `U5GBACKUP_LL`:** Derived from the U5GBackup LAN IP.
