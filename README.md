@@ -109,10 +109,10 @@ working in failover mode:
    advertise and sends RAs without a Prefix Information Option (PIO).
 2. GRE tunnel interfaces lack `IFF_MULTICAST` by default, which odhcpd
    requires before advertising on an interface.
+3. A blackhole route silently drops all IPv6 traffic forwarded via the
+   GRE tunnel from the parent gateway.
 
-Additionally, a blackhole route drops all IPv6 traffic forwarded via the
-GRE tunnel. The `u5g-backup-fix` script corrects all three issues idempotently
-on every run.
+The `u5g-backup-fix` script corrects all three issues idempotently on every run.
 
 On the gateway side, the UCG's traffic routing system only generates IPv4
 policy routing rules. IPv6 equivalents must be added manually. The

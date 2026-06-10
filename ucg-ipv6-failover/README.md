@@ -11,8 +11,8 @@ during primary WAN outages.
   [u5g-backup-fix](../u5g-backup-fix/) applied
 - SSH access to the UCG
 - `radvd` installable via `apt` (cached deb included for post-upgrade survival)
-- A Provider Independent (PI) IPv6 `/48` block from your RIR
-  (ARIN, RIPE, APNIC, etc.) — the first `/64` is used here
+- At minimum a `/64` from a Provider Independent (PI) IPv6 block
+  from your RIR (ARIN, RIPE, APNIC, etc.)
 
 ## Approaches
 

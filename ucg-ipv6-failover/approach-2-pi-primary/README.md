@@ -24,7 +24,8 @@ experience a prefix or router change during failover.
 
 ## Architecture
 
-Clients always use a stable PI GUA (`2001:db8:fe::/64`). The UCG handles
+Clients always use a stable PI GUA (examples use `2001:db8:fe::/64` —
+replace with your actual PI /64). The UCG handles
 translation at the WAN border:
 
 ```
