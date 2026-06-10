@@ -110,7 +110,7 @@ Everything from Approach 1, plus:
 ## Known Limitations
 
 Even with Approach 2, one scenario remains that requires Ubiquiti's help:
-if Ubiquiti added Feature Request #6 (keep DHCPv6-PD prefix alive during
+if Ubiquiti added a Ubiquiti firmware fix (keep DHCPv6-PD prefix alive during
 WAN outage), the PI-as-primary approach would become unnecessary — the
 primary ISP GUA would stay active during failover and clients would never
 notice anything changed, without any custom scripts.

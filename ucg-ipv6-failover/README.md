@@ -40,7 +40,7 @@ within ~5 minutes.
 `odhcpd` immediately withdraws the primary ISP prefix from its Router
 Advertisements — clients lose their ISP GUA. There is no way to prevent
 this from userspace without Ubiquiti fixing this behavior (see
-[Feature Request #6](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219)).
+[this Ubiquiti feature request](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219)).
 The PI prefix fills this gap: since PI space is independent of any ISP,
 `radvd` can advertise it during failover regardless of WAN state, giving
 clients a working GUA for the duration of the outage.
