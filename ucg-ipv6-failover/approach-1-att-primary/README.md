@@ -1,4 +1,4 @@
-# Approach 1: AT&T-as-Primary IPv6 Failover
+# Approach 1: ISP-as-Primary IPv6 Failover
 
 Clients use their primary ISP GUA during normal operation. A PI prefix is
 advertised temporarily during failover. All other OSes except Android recover
@@ -118,7 +118,7 @@ ssh root@<UCG_IP> "
     echo '=== gre1 SLAAC address ==='
     ip -6 addr show dev gre1 scope global
 
-    echo '=== table 201 (should have AT&T metric 512 + gre1 metric 2048) ==='
+    echo '=== table 201 (should have primary ISP metric 512 + gre1 metric 2048) ==='
     ip -6 route show table 201.eth4.0
 
     echo '=== SNAT rule ==='

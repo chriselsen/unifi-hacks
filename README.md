@@ -16,7 +16,7 @@ parent UCG. **This is a prerequisite for the IPv6 failover implementation below.
 IPv6 failover for UniFi Cloud Gateway Ultra (UCG) using the U5G Backup as
 secondary WAN. Two approaches are documented:
 
-- **[Approach 1: AT&T-as-primary](./ucg-ipv6-failover/approach-1-att-primary/)** —
+- **[Approach 1: ISP-as-primary](./ucg-ipv6-failover/approach-1-att-primary/)** —
   clients use their primary ISP GUA normally; PI prefix is advertised temporarily
   during failover. Works for Windows, Linux, macOS. Android requires WiFi toggle
   to recover.

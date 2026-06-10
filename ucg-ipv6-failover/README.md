@@ -18,7 +18,7 @@ during primary WAN outages.
 
 Two approaches are documented. Choose based on your requirements:
 
-| | Approach 1: AT&T-as-primary | Approach 2: PI-as-primary |
+| | Approach 1: ISP-as-primary | Approach 2: PI-as-primary |
 |---|---|---|
 | **Client GUA** | Primary ISP GUA normally; PI GUA during failover | PI GUA always |
 | **Normal operation** | Direct routing via ISP | NPTv6: PI ↔ ISP |
@@ -28,7 +28,7 @@ Two approaches are documented. Choose based on your requirements:
 | **Complexity** | Lower | Higher |
 | **Status** | ✅ Implemented | 🚧 Architecture documented |
 
-### [Approach 1: AT&T-as-primary](./approach-1-att-primary/)
+### [Approach 1: ISP-as-primary](./approach-1-att-primary/)
 
 Clients use their primary ISP GUA during normal operation. When the primary
 WAN fails, a PI prefix is temporarily advertised on the LAN with a short
@@ -58,7 +58,7 @@ manually. The UCG uses fwmark-based routing with named tables:
 
 | Table | Interface | Purpose |
 |-------|-----------|---------|
-| `201.eth4.0` | Primary WAN | AT&T / fiber |
+| `201.eth4.0` | Primary WAN | primary ISP (fiber, cable, etc.) |
 | `178.gre1` | GRE tunnel | Cellular via U5G Backup |
 
 Client traffic is directed to a table by matching source prefix in

@@ -74,7 +74,7 @@ Everything from Approach 1, plus:
 | Client GUA during failover | PI GUA (temporary) | PI GUA (always) |
 | Android recovery | WiFi toggle required ⚠️ | Automatic ✓ |
 | Normal operation overhead | None | NPTv6 (stateless, near-zero) |
-| AT&T prefix rotation handling | Automatic | NPTv6 rule rebuild needed |
+| Primary ISP prefix rotation handling | Automatic | NPTv6 rule rebuild needed |
 | Complexity | Lower | Higher |
 
 ## Implementation Plan
