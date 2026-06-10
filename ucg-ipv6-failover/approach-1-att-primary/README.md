@@ -144,6 +144,22 @@ ssh root@<UCG_IP> "
 "
 ```
 
+## Testing Failover
+
+A test script is included to simulate a primary WAN failure and verify
+that failover works correctly. It brings down the WAN interface for 3
+minutes, samples connectivity at intervals, then restores and checks
+recovery. Run it from a machine on the LAN — the SSH session is
+unaffected since it routes via the LAN, not the WAN.
+
+```bash
+# Edit UCG and NAS variables at the top first
+chmod +x test-ipv6-failover.sh
+./test-ipv6-failover.sh
+```
+
+Output is saved to `/tmp/failover-test-<timestamp>.log`.
+
 ## File Layout
 
 ```
@@ -162,6 +178,9 @@ ssh root@<UCG_IP> "
 └── restore-crontab.service    ← restores crontab on boot
 
 /etc/radvd.conf                ← managed by gre1-prefix-monitor
+
+# In this repo (run from your local machine):
+test-ipv6-failover.sh          ← simulate WAN failure and verify failover
 ```
 
 ## Known Limitations
