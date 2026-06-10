@@ -18,8 +18,9 @@ secondary WAN. Two approaches are documented:
 
 - **[Approach 1: ISP-as-primary](./ucg-ipv6-failover/approach-1-att-primary/)** —
   clients use their primary ISP GUA normally; PI prefix is advertised temporarily
-  during failover. Works for Windows, Linux, macOS. Android requires WiFi toggle
-  to recover.
+  during failover (necessary because the UCG withdraws the ISP prefix when the
+  primary WAN goes down — no userspace workaround exists for this). Works for
+  Windows, Linux, macOS. Android requires WiFi toggle to recover.
 
 - **[Approach 2: PI-as-primary](./ucg-ipv6-failover/approach-2-pi-primary/)** —
   clients always use a stable PI GUA; NPTv6 translates to primary ISP normally,

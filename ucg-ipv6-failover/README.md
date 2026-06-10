@@ -36,6 +36,15 @@ lifetime (300s). Both the ISP GUA and PI GUA route via the cellular backup
 using SNAT. On recovery, the PI prefix is deprecated and expires naturally
 within ~5 minutes.
 
+**Why PI space is needed:** When the primary WAN goes down, the UCG's
+`odhcpd` immediately withdraws the primary ISP prefix from its Router
+Advertisements — clients lose their ISP GUA. There is no way to prevent
+this from userspace without Ubiquiti fixing this behavior (see
+[Feature Request #6](https://community.ui.com/questions/Feature-Request-Fix-IPv6-failover-on-UniFi-5G-Backup/c14612e6-a774-4f41-9f99-621b26e80219)).
+The PI prefix fills this gap: since PI space is independent of any ISP,
+`radvd` can advertise it during failover regardless of WAN state, giving
+clients a working GUA for the duration of the outage.
+
 **Limitation:** Android loses its IPv6 default gateway during failover and
 requires a WiFi toggle to recover. This is an Android OS limitation — it does
 not send RS on router loss and ignores unsolicited RAs. Windows 11, Linux,
