@@ -5,6 +5,13 @@
 # Cellular prefix: re-advertises the cellular /64 on the cellular VLAN (BR_CELLULAR)
 # so clients get real cellular GUAs via SLAAC.
 #
+# Architecture:
+#   1. Periodic poll (every 30s) reconciles ALL state: radvd, SNAT, ipsets,
+#      routes, sysctls. This is the source of truth — if anything drifts,
+#      the next poll fixes it within 30s.
+#   2. Event-driven path (ip monitor) triggers immediate reconciliation on
+#      address or route changes for fast failover reaction.
+#
 # Failover: when primary WAN default disappears from table 201, adds PI prefix
 # on BR_LAN with short lifetimes (300s) so LAN clients get a GUA that survives
 # the ~1h odhcpd lease expiry window. On recovery, deprecates PI prefix
@@ -24,6 +31,32 @@ U5GBACKUP_LL="fe80::c0a8:1eda" # U5GBackup link-local on gre1
 
 CONF=/etc/radvd.conf
 FAILOVER_STATE=/run/gre1-monitor-failover
+STATE_FILE=/run/gre1-monitor-prefix
+
+# --- Helper: get current GUA on gre1 ---
+# Uses valid_lft (not preferred_lft) since we deprecate the gre1 GUA
+# for RFC 6724 source address selection (preferred_lft=0).
+get_gre1_gua() {
+    ip -6 addr show dev gre1 scope global 2>/dev/null \
+        | awk '
+            BEGIN { best = -1 }
+            /inet6/     { addr = $2 }
+            /valid_lft/ {
+                lft = ($2 == "forever") ? 999999999 : $2+0
+                if (lft > best) { best = lft; best_addr = addr }
+            }
+            END { gsub(/\/.*/, "", best_addr); print best_addr }
+        '
+}
+
+# --- Helper: compute /64 prefix from address (strips any existing CIDR) ---
+get_prefix64() {
+    python3 -c "
+import ipaddress
+a = '$1'.split('/')[0]
+print(str(ipaddress.ip_network(a + '/64', strict=False)))
+" 2>/dev/null
+}
 
 write_radvd_conf() {
     local PREFIX="$1"
@@ -67,59 +100,77 @@ EOF
     fi
 }
 
-update_radvd() {
+# --- Core reconciliation: ensures ALL state matches current prefix ---
+# Called on startup, every 30s, and on events. Idempotent.
+reconcile() {
     FORCE=${1:-0}
-    # Pick GUA on gre1 by highest valid_lft.
-    # Use valid_lft (not preferred_lft) since we deprecate the gre1 GUA
-    # for RFC 6724 source address selection (preferred_lft=0).
-    GUA=$(ip -6 addr show dev gre1 scope global 2>/dev/null \
-        | awk '
-            /inet6/     { addr = $2 }
-            /valid_lft/ {
-                lft = ($2 == "forever") ? 999999999 : $2+0
-                if (lft > best) { best = lft; best_addr = addr }
-            }
-            END { gsub(/\/.*/, "", best_addr); print best_addr }
-        ')
 
+    # Ensure sysctls are correct (udapi can reset these)
+    CUR_RA=$(sysctl -n net.ipv6.conf.gre1.accept_ra 2>/dev/null)
+    CUR_DEFRTR=$(sysctl -n net.ipv6.conf.gre1.accept_ra_defrtr 2>/dev/null)
+    CUR_AUTO=$(sysctl -n net.ipv6.conf.gre1.autoconf 2>/dev/null)
+    [ "$CUR_RA" != "2" ] && sysctl -qw net.ipv6.conf.gre1.accept_ra=2
+    [ "$CUR_DEFRTR" != "0" ] && sysctl -qw net.ipv6.conf.gre1.accept_ra_defrtr=0
+    [ "$CUR_AUTO" != "1" ] && sysctl -qw net.ipv6.conf.gre1.autoconf=1
+
+    # Get current GUA
+    GUA=$(get_gre1_gua)
     [ -z "$GUA" ] && return
 
-    PREFIX=$(python3 -c "
-import ipaddress
-print(str(ipaddress.ip_network('$GUA/64', strict=False)))
-" 2>/dev/null)
-
+    PREFIX=$(get_prefix64 "$GUA")
     [ -z "$PREFIX" ] && return
 
-    [ "$FORCE" = "0" ] && grep -qF "$PREFIX" "$CONF" 2>/dev/null && return
+    # Check if anything changed
+    PREV_PREFIX=$(cat "$STATE_FILE" 2>/dev/null)
+    if [ "$FORCE" = "0" ] && [ "$PREFIX" = "$PREV_PREFIX" ]; then
+        # Prefix unchanged — ensure GUA is deprecated, SNAT correct, failover state
+        ensure_deprecated "$GUA"
+        ensure_snat "$GUA" "$PREFIX"
+        check_failover_state "$PREFIX"
+        return
+    fi
 
-    logger -t gre1-prefix-monitor "new prefix $PREFIX on $BR_CELLULAR"
+    # --- Prefix changed (or forced) — full reconciliation ---
+    logger -t gre1-prefix-monitor "reconcile: prefix $PREFIX (was: ${PREV_PREFIX:-none})"
+    echo "$PREFIX" > "$STATE_FILE"
 
+    # Deprecate GUA for RFC 6724 source selection
+    ensure_deprecated "$GUA"
+
+    # Determine failover state
     FAILOVER=0
     ip -6 route show table "$WAN_TABLE" | grep -q 'default.*eth4' || FAILOVER=1
-
-    write_radvd_conf "$PREFIX" "$FAILOVER"
     echo "$FAILOVER" > "$FAILOVER_STATE"
 
+    # Update radvd
+    write_radvd_conf "$PREFIX" "$FAILOVER"
     service radvd restart
-    logger -t gre1-prefix-monitor "radvd restarted with $PREFIX"
+    logger -t gre1-prefix-monitor "radvd restarted with $PREFIX (failover=$FAILOVER)"
 
-    # Remove RA-learned default from main table (would override policy routing)
+    # Remove gre1 default from main table (RA side-effect)
     ip -6 route del default dev gre1 proto ra table main 2>/dev/null
 
-    # Keep ipset and cellular return route in sync with new prefix
+    # Ensure static default in table 178
+    ip -6 route replace default via "$U5GBACKUP_LL" dev gre1 table 178.gre1
+
+    # Update ipsets
     ipset test UBIOS6trafficroute_net4_1 "$PREFIX" 2>/dev/null || \
         ipset add UBIOS6trafficroute_net4_1 "$PREFIX"
     ipset test UBIOS6LAN_subnets "$PREFIX" 2>/dev/null || \
         ipset add UBIOS6LAN_subnets "$PREFIX"
     ipset test UBIOS6local_zoned_subnets "$PREFIX" 2>/dev/null || \
         ipset add UBIOS6local_zoned_subnets "$PREFIX"
+
+    # Cellular return route
     ip -6 route show "$PREFIX" | grep -q "$BR_CELLULAR" || \
         ip -6 route add "$PREFIX" dev "$BR_CELLULAR" metric 100 2>/dev/null
     logger -t gre1-prefix-monitor "ipset and $BR_CELLULAR route updated for $PREFIX"
 
+    # Update SNAT rule
+    ensure_snat "$GUA" "$PREFIX"
+
     # Remove stale cellular prefixes from ipsets and routes
-    ULA_PREFIX=$(echo "$BR_CELLULAR" | sed 's/br/fd/')  # e.g. br100 → fd100::/64
+    ULA_PREFIX=$(echo "$BR_CELLULAR" | sed 's/br/fd/')
     for STALE in $(ipset list UBIOS6trafficroute_net4_1 \
                     | awk "/^[0-9a-f]/ && !/$ULA_PREFIX/ {print \$1}"); do
         [ "$STALE" = "$PREFIX" ] && continue
@@ -134,7 +185,7 @@ print(str(ipaddress.ip_network('$GUA/64', strict=False)))
     ip -6 addr show dev gre1 scope global \
         | awk '/inet6/{print $2}' \
         | while read -r ADDR; do
-            ADDR_PREFIX=$(python3 -c "import ipaddress; print(str(ipaddress.ip_network('$ADDR', strict=False).supernet(new_prefix=64)))" 2>/dev/null)
+            ADDR_PREFIX=$(get_prefix64 "$ADDR")
             if [ "$ADDR_PREFIX" != "$PREFIX" ]; then
                 ip -6 addr del "$ADDR" dev gre1 2>/dev/null && \
                     logger -t gre1-prefix-monitor "removed stale GUA $ADDR from gre1"
@@ -143,36 +194,63 @@ print(str(ipaddress.ip_network('$GUA/64', strict=False)))
         done
 }
 
-# Run once on startup — always rewrite conf and restart radvd
-echo 0 > "$FAILOVER_STATE"
-update_radvd 1
+# --- Ensure GUA is deprecated (preferred_lft 0) ---
+# RA can re-add the address with preferred_lft forever; fix it every poll.
+ensure_deprecated() {
+    local GUA="$1"
+    local CURRENT_PLFT
+    CURRENT_PLFT=$(ip -6 addr show dev gre1 scope global 2>/dev/null \
+        | grep "$GUA" -A1 | awk '/preferred_lft/{print $4}')
+    if [ "$CURRENT_PLFT" != "0sec" ]; then
+        ip -6 addr change "$GUA/64" dev gre1 preferred_lft 0 2>/dev/null
+    fi
+}
 
-# Watch for address changes on gre1 and route changes affecting primary WAN table
-ip monitor address route | while read -r line; do
-    case "$line" in
-        # New cellular prefix on gre1
-        *"inet6"*"scope global"*gre1*)
-            update_radvd
-            ;;
-        # Primary WAN default route appeared or disappeared
-        *"table 201"*|*"eth4"*)
-            PREFIX=$(grep 'prefix ' "$CONF" 2>/dev/null | head -1 | awk '{print $2}')
-            [ -n "$PREFIX" ] && {
-                FAILOVER=0
-                ip -6 route show table "$WAN_TABLE" | grep -q 'default.*eth4' || FAILOVER=1
-                LAST=$(cat "$FAILOVER_STATE" 2>/dev/null || echo 0)
-                echo "$FAILOVER" > "$FAILOVER_STATE"
-                if [ "$FAILOVER" = "0" ] && [ "$LAST" = "1" ]; then
-                    # Primary WAN recovered — trigger RS so clients get fresh RA
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    sleep 1
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    sleep 1
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    sleep 3
-                    # Deprecate PI prefix so RFC 6724 Rule 3 makes clients
-                    # prefer ISP GUA for new connections before we remove block
-                    cat > "$CONF" << EOF
+# --- Ensure SNAT rule matches current GUA ---
+# Removes any stale SNAT/MASQUERADE rules for gre1, adds the correct one.
+ensure_snat() {
+    local GUA="$1"
+    local PREFIX="$2"
+
+    # Check if correct rule already exists
+    if ip6tables -t nat -C POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA" 2>/dev/null; then
+        return
+    fi
+
+    # Remove all gre1 SNAT/MASQUERADE rules
+    while ip6tables -t nat -D POSTROUTING -o gre1 -j MASQUERADE 2>/dev/null; do :; done
+    ip6tables -t nat -L POSTROUTING -n --line-numbers 2>/dev/null \
+        | grep "SNAT.*gre1" | awk '{print $1}' | sort -rn \
+        | while read -r NUM; do
+            ip6tables -t nat -D POSTROUTING "$NUM" 2>/dev/null
+        done
+
+    # Add correct rule
+    ip6tables -t nat -A POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA"
+    logger -t gre1-prefix-monitor "SNAT updated: $GUA (prefix $PREFIX)"
+}
+
+# --- Check/update failover state without full prefix reconciliation ---
+check_failover_state() {
+    local PREFIX="$1"
+    FAILOVER=0
+    ip -6 route show table "$WAN_TABLE" | grep -q 'default.*eth4' || FAILOVER=1
+    LAST=$(cat "$FAILOVER_STATE" 2>/dev/null || echo 0)
+
+    [ "$FAILOVER" = "$LAST" ] && return
+
+    echo "$FAILOVER" > "$FAILOVER_STATE"
+
+    if [ "$FAILOVER" = "0" ] && [ "$LAST" = "1" ]; then
+        # Primary WAN recovered
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        sleep 1
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        sleep 1
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        sleep 3
+        # Deprecate PI prefix before removing
+        cat > "$CONF" << EOF
 interface $BR_CELLULAR {
     AdvSendAdvert on;
     MinRtrAdvInterval 3;
@@ -201,26 +279,54 @@ interface $BR_LAN {
     };
 };
 EOF
-                    service radvd restart
-                    logger -t gre1-prefix-monitor "deprecated PI prefix on $BR_LAN for recovery"
-                    sleep 10
-                fi
-                write_radvd_conf "$PREFIX" "$FAILOVER"
-                if [ "$FAILOVER" = "1" ]; then
-                    service radvd restart
-                    sleep 1
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    sleep 1
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    sleep 1
-                    rdisc6 -1 "$BR_LAN" 2>/dev/null
-                    logger -t gre1-prefix-monitor "failover detected, radvd updated"
-                else
-                    write_radvd_conf "$PREFIX" 0
-                    service radvd restart
-                    logger -t gre1-prefix-monitor "primary WAN restored, radvd updated"
-                fi
-            }
+        service radvd restart
+        logger -t gre1-prefix-monitor "deprecated PI prefix on $BR_LAN for recovery"
+        sleep 10
+        write_radvd_conf "$PREFIX" 0
+        service radvd restart
+        logger -t gre1-prefix-monitor "primary WAN recovered, radvd updated"
+    elif [ "$FAILOVER" = "1" ] && [ "$LAST" = "0" ]; then
+        # Primary WAN failed
+        logger -t gre1-prefix-monitor "primary WAN failed, activating PI failover"
+        write_radvd_conf "$PREFIX" 1
+        service radvd restart
+        sleep 1
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        sleep 1
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        sleep 1
+        rdisc6 -1 "$BR_LAN" 2>/dev/null
+        logger -t gre1-prefix-monitor "failover active, radvd updated"
+    fi
+}
+
+# ============================================================
+# MAIN
+# ============================================================
+
+# Run full reconciliation on startup
+echo 0 > "$FAILOVER_STATE"
+reconcile 1
+
+# Start event monitor in background — triggers immediate reconciliation
+ip monitor address route | while read -r line; do
+    case "$line" in
+        *gre1*inet6*|*gre1*"scope global"*)
+            reconcile
+            ;;
+        *"table 201"*|*"eth4"*)
+            reconcile
             ;;
     esac
-done
+done &
+MONITOR_PID=$!
+
+# Periodic poll — the safety net that makes everything self-healing
+while true; do
+    sleep 30
+    reconcile
+done &
+POLL_PID=$!
+
+# Wait for either to exit (shouldn't happen) and clean up
+wait $MONITOR_PID $POLL_PID
