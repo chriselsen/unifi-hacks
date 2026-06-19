@@ -207,27 +207,30 @@ ensure_deprecated() {
 }
 
 # --- Ensure SNAT rule matches current GUA ---
-# Removes any stale SNAT/MASQUERADE rules for gre1, adds the correct one.
+# Always purges ALL gre1 SNAT/MASQUERADE rules and re-adds the correct one.
+# Never short-circuits — stale rules above the correct one cause traffic to
+# be translated to a dead address (the old prefix's GUA).
 ensure_snat() {
     local GUA="$1"
     local PREFIX="$2"
 
-    # Check if correct rule already exists
-    if ip6tables -t nat -C POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA" 2>/dev/null; then
-        return
-    fi
-
-    # Remove all gre1 SNAT/MASQUERADE rules
+    # Remove all gre1 MASQUERADE rules
     while ip6tables -t nat -D POSTROUTING -o gre1 -j MASQUERADE 2>/dev/null; do :; done
-    ip6tables -t nat -L POSTROUTING -n --line-numbers 2>/dev/null \
-        | grep "SNAT.*gre1" | awk '{print $1}' | sort -rn \
-        | while read -r NUM; do
-            ip6tables -t nat -D POSTROUTING "$NUM" 2>/dev/null
-        done
 
-    # Add correct rule
+    # Remove ALL gre1 SNAT rules (iterate from bottom up until none remain)
+    # Must use -v flag so the interface column (out=gre1) is visible in output.
+    while ip6tables -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
+            | grep -q "SNAT.*gre1"; do
+        local NUM
+        NUM=$(ip6tables -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
+            | grep "SNAT.*gre1" | tail -1 | awk '{print $1}')
+        [ -z "$NUM" ] && break
+        ip6tables -t nat -D POSTROUTING "$NUM" 2>/dev/null || break
+    done
+
+    # Add the single correct rule
     ip6tables -t nat -A POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA"
-    logger -t gre1-prefix-monitor "SNAT updated: $GUA (prefix $PREFIX)"
+    logger -t gre1-prefix-monitor "SNAT ensured: $GUA (prefix $PREFIX)"
 }
 
 # --- Check/update failover state without full prefix reconciliation ---
