@@ -215,21 +215,21 @@ ensure_snat() {
     local PREFIX="$2"
 
     # Remove all gre1 MASQUERADE rules
-    while ip6tables -t nat -D POSTROUTING -o gre1 -j MASQUERADE 2>/dev/null; do :; done
+    while ip6tables -w 5 -t nat -D POSTROUTING -o gre1 -j MASQUERADE 2>/dev/null; do :; done
 
     # Remove ALL gre1 SNAT rules (iterate from bottom up until none remain)
     # Must use -v flag so the interface column (out=gre1) is visible in output.
-    while ip6tables -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
+    while ip6tables -w 5 -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
             | grep -q "SNAT.*gre1"; do
         local NUM
-        NUM=$(ip6tables -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
+        NUM=$(ip6tables -w 5 -t nat -L POSTROUTING -nv --line-numbers 2>/dev/null \
             | grep "SNAT.*gre1" | tail -1 | awk '{print $1}')
         [ -z "$NUM" ] && break
-        ip6tables -t nat -D POSTROUTING "$NUM" 2>/dev/null || break
+        ip6tables -w 5 -t nat -D POSTROUTING "$NUM" 2>/dev/null || break
     done
 
     # Add the single correct rule
-    ip6tables -t nat -A POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA"
+    ip6tables -w 5 -t nat -A POSTROUTING ! -s "$PREFIX" -o gre1 -j SNAT --to-source "$GUA"
     logger -t gre1-prefix-monitor "SNAT ensured: $GUA (prefix $PREFIX)"
 }
 
