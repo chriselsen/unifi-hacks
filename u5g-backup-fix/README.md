@@ -24,6 +24,28 @@ The fix is a small idempotent shell script that corrects all three issues.
 It runs every minute via SSH from the parent UCG so it reapplies automatically
 after every U5GBackup reboot or cellular reconnect.
 
+## Firmware 1.5.5 note
+
+Firmware `1.5.5.20093` adds a fourth condition: the generated
+`/etc/config/dhcp` sets `option ra 'disabled'` for the MBB LAN. The `/64`
+address and multicast fix are not enough in that case because `odhcpd` sends
+no Prefix Information Option. The patch now:
+
+- detects `mbb.mode` and only applies the failover fix when it is explicitly
+  `failover`; if `/tmp/system.cfg` is missing or unreadable it refuses to touch
+  addresses, routes or DHCP;
+- derives the /64 from `uiwwand-ctl get-ipv6-settings` (`ipv6-ui-prefix`)
+  instead of splitting a possibly compressed address;
+- sets `dhcp.ipv6.ra='server'` and restarts/reloads `odhcpd` when 1.5.5 has
+  disabled RAs (idempotent, because the firmware can regenerate the file);
+- probes the CLAT IPv4 path as a warning only (`clat_enabled=false` is a
+  profile flag, not runtime state).
+
+Use `check-u5g-ipv6.sh` for a read-only diagnosis before and after the patch.
+It checks mode, the /64 address, multicast, the table-3 blackhole and return
+route, `odhcpd`, RA mode and the CLAT probe, and exits non-zero if an IPv6
+check fails.
+
 ## Prerequisites
 
 - UniFi 5G Backup (U5G-US) adopted in failover mode on a UCG
@@ -71,12 +93,19 @@ Copy `patch-u5g-ipv6.sh` to the U5GBackup's persistent storage:
 
 ```bash
 scp -i /etc/ipv6-policy-routes/u5g-backup-key \
-    -O patch-u5g-ipv6.sh \
-    root@<U5GBACKUP_IP>:/etc/persistent/patch-u5g-ipv6.sh
+    -O patch-u5g-ipv6.sh check-u5g-ipv6.sh \
+    root@<U5GBACKUP_IP>:/etc/persistent/
 ```
 
 > **Note:** The `-O` flag forces legacy SCP protocol, required for U5GBackup
 > compatibility.
+
+Make both scripts executable:
+
+```bash
+ssh -i /etc/ipv6-policy-routes/u5g-backup-key root@<U5GBACKUP_IP> \
+    "chmod +x /etc/persistent/patch-u5g-ipv6.sh /etc/persistent/check-u5g-ipv6.sh"
+```
 
 The `/etc/persistent/` directory survives reboots and firmware upgrades on
 the U5GBackup.
@@ -148,6 +177,17 @@ systemctl enable restore-u5g-crontab.service
 After a minute, check that the fix has been applied on the U5GBackup:
 
 ```bash
+ssh -i /etc/ipv6-policy-routes/u5g-backup-key root@<U5GBACKUP_IP> \
+    /etc/persistent/check-u5g-ipv6.sh
+```
+
+The script exits 0 only when the mode is `failover`, the /64 is on `gre1`,
+multicast is set, the blackhole is gone, the return route exists, `odhcpd` is
+running, RA mode is `server` on 1.5.5, and the CLAT probe succeeds.
+
+For the raw state:
+
+```bash
 ssh -i /etc/ipv6-policy-routes/u5g-backup-key root@<U5GBACKUP_IP> "
     echo '=== gre1 addresses ==='
     ip -6 addr show dev gre1
@@ -174,7 +214,8 @@ ip -6 addr show dev gre1 | grep 'scope global'
 
 ```
 /etc/persistent/
-└── patch-u5g-ipv6.sh          ← on U5GBackup, survives reboots
+├── patch-u5g-ipv6.sh          ← on U5GBackup, survives reboots
+└── check-u5g-ipv6.sh          ← read-only diagnosis on U5GBackup
 
 /etc/ipv6-policy-routes/       ← on UCG, survives firmware upgrades
 ├── u5g-backup-key             ← SSH private key (UCG → U5GBackup)
@@ -236,8 +277,16 @@ routing loops in primary internet mode but must not be added in failover mode:
 # ip -6 route add table 3 blackhole $ipv6_ui_prefix metric 100500
 ```
 
-These three changes are the complete fix. Everything else — `odhcpd`, the
-routing tables, the policy rules — is already correctly configured by the
+**Bug 4: Router Advertisements disabled on the MBB LAN in 1.5.5**
+
+Firmware `1.5.5.20093` writes `option ra 'disabled'` for the generated
+`ipv6` interface. Even with the /64 address and multicast fix, `odhcpd` then
+sends no Prefix Information Option, so the parent gateway cannot SLAAC from
+`gre1`. The patch re-enables `dhcp.ipv6.ra='server'`; the firmware should keep
+RA enabled for the MBB LAN, or document why it is disabled.
+
+These four changes are the complete failover fix. Everything else — `odhcpd`,
+the routing tables, the policy rules — is already correctly configured by the
 firmware. The parent gateway (UCG) also needs a minor update to accept RAs
 on `gre1` and add a fallback IPv6 default route via the tunnel, but that
 is straightforward once the U5G Backup is advertising correctly.
