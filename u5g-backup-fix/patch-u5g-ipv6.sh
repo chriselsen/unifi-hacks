@@ -15,6 +15,18 @@
 #
 # MIT License — https://github.com/chriselsen/unifi-hacks
 
+# Firmware 1.5.5 writes "option ra 'disabled'" for the MBB LAN. In that
+# version the patch must also re-enable RAs, otherwise odhcpd has no PIO to
+# advertise even after the /64 address is added. The firmware may rewrite the
+# file on every data call, so the block below is intentionally idempotent.
+# The patch is for failover mode only; primary_internet uses ui_force_ia_pd and
+# usb_nat has a different data path.
+MBB_MODE=$(awk -F= '/^mbb\.mode=/{print $2; exit}' /tmp/system.cfg 2>/dev/null)
+if [ -n "$MBB_MODE" ] && [ "$MBB_MODE" != "failover" ]; then
+    echo "u5g-ipv6: mbb.mode=$MBB_MODE, failover patch not applicable" >&2
+    exit 0
+fi
+
 # Derive the cellular /64 prefix from rmnet_data0's assigned address.
 # The modem gets a /128 SLAAC address; we extract the /64 from it.
 PREFIX=$(ip -6 addr show rmnet_data0 2>/dev/null \
@@ -55,7 +67,33 @@ if ! ip -6 route show table 3 | grep -q "${PREFIX}.*dev gre1"; then
     ip -6 route add table 3 "${PREFIX}/64" dev gre1 metric 100499 2>/dev/null
 fi
 
+# Fix 4 (firmware 1.5.5): re-enable Router Advertisements on the generated
+# MBB LAN. 1.5.5 sets "option ra 'disabled'" in /etc/config/dhcp, so odhcpd
+# sends no PIO and the parent gateway cannot SLAAC from gre1. The firmware may
+# regenerate the file on a data call, so this check runs every minute.
+if command -v uci >/dev/null 2>&1; then
+    if [ "$(uci -q get dhcp.ipv6.ra)" = "disabled" ]; then
+        uci set dhcp.ipv6.ra='server'
+        uci commit dhcp
+        if [ -x /etc/init.d/odhcpd ]; then
+            /etc/init.d/odhcpd restart
+        else
+            pkill odhcpd 2>/dev/null
+            /usr/sbin/odhcpd >/dev/null 2>&1 </dev/null &
+        fi
+    fi
+fi
+
 # Ensure odhcpd is running (it may have exited if gre1 wasn't ready at boot)
 if ! pgrep odhcpd >/dev/null; then
     /usr/sbin/odhcpd >/dev/null 2>&1 </dev/null &
+fi
+
+# The U5G CLAT flag is not runtime state: the API can report
+# clat_enabled=false while 192.0.0.2/27 is translating IPv4. Probe the local
+# CLAT address as a warning only; the IPv6 fix is independent of IPv4.
+if ip -4 addr show rmnet_data0 2>/dev/null | grep -q '192\.0\.0\.2'; then
+    if ! ping -4 -I 192.0.0.2 -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then
+        echo "u5g-ipv6: warning: CLAT IPv4 probe via 192.0.0.2 failed" >&2
+    fi
 fi
