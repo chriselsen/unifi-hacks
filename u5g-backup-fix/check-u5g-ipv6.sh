@@ -12,24 +12,27 @@
 
 FAIL=0
 MBB_MODE=$(awk -F= '/^mbb\.mode=/{print $2; exit}' /tmp/system.cfg 2>/dev/null)
-PREFIX=$(ip -6 addr show rmnet_data0 2>/dev/null \
-    | awk '/scope global/{
-        gsub(/\/128/, "")
-        split($2, g, ":")
-        printf "%s:%s:%s:%s::\n", g[1], g[2], g[3], g[4]
-        exit
-    }')
+if command -v uiwwand-ctl >/dev/null 2>&1; then
+    PREFIX=$(printf '%s\n' '{"method":"get-ipv6-settings"}' | uiwwand-ctl 2>/dev/null \
+        | tr -d '\n' \
+        | sed -n 's/.*"ipv6-ui-prefix"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+    PREFIX=${PREFIX%/64}
+else
+    PREFIX=""
+fi
 
 say() { printf '%-34s %s\n' "$1" "$2"; }
 fail() { say "$1" "FAIL: $2"; FAIL=1; }
 ok() { say "$1" "ok: $2"; }
 
-say "mode" "${MBB_MODE:-unknown}"
-[ -n "$MBB_MODE" ] && [ "$MBB_MODE" != "failover" ] && \
-    say "warning" "patch only applies in failover mode"
+if [ "$MBB_MODE" = "failover" ]; then
+    ok "mode" "failover"
+else
+    fail "mode" "${MBB_MODE:-missing/unreadable}, patch requires failover"
+fi
 
 if [ -z "$PREFIX" ]; then
-    fail "cellular prefix" "rmnet_data0 has no global /128"
+    fail "cellular prefix" "cannot read ipv6-ui-prefix from uiwwand-ctl"
 else
     ok "cellular prefix" "$PREFIX/64"
 fi
@@ -44,20 +47,33 @@ else
     fail "gre1" "interface missing"
 fi
 
+prefix_addr() {
+    ip -6 addr show gre1 2>/dev/null \
+        | awk -v p="${PREFIX}/64" '$1 == "inet6" && index($2, p) == 1 { found = 1 } END { exit !found }'
+}
+route_blackhole() {
+    ip -6 route show table 3 2>/dev/null \
+        | awk -v p="${PREFIX}/64" '$1 == "blackhole" && $2 == p { found = 1 } END { exit !found }'
+}
+route_gre() {
+    ip -6 route show table 3 2>/dev/null \
+        | awk -v p="${PREFIX}/64" '$1 == p && $2 == "dev" && $3 == "gre1" { found = 1 } END { exit !found }'
+}
+
 if [ -n "$PREFIX" ]; then
-    if ip -6 addr show gre1 2>/dev/null | grep -q "${PREFIX}.*/64"; then
+    if prefix_addr; then
         ok "gre1 /64" "$PREFIX/64 present"
     else
         fail "gre1 /64" "no ${PREFIX}/64 address"
     fi
 
-    if ip -6 route show table 3 2>/dev/null | grep -q "blackhole ${PREFIX}"; then
-        fail "table 3 blackhole" "blackhole ${PREFIX} still present"
+    if route_blackhole; then
+        fail "table 3 blackhole" "blackhole ${PREFIX}/64 still present"
     else
         ok "table 3 blackhole" "absent"
     fi
 
-    if ip -6 route show table 3 2>/dev/null | grep -q "${PREFIX}.*dev gre1"; then
+    if route_gre; then
         ok "table 3 return route" "${PREFIX}/64 dev gre1"
     else
         fail "table 3 return route" "no ${PREFIX}/64 dev gre1"

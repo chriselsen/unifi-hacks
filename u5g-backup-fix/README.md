@@ -31,7 +31,11 @@ Firmware `1.5.5.20093` adds a fourth condition: the generated
 address and multicast fix are not enough in that case because `odhcpd` sends
 no Prefix Information Option. The patch now:
 
-- detects `mbb.mode` and only applies the failover fix in `failover` mode;
+- detects `mbb.mode` and only applies the failover fix when it is explicitly
+  `failover`; if `/tmp/system.cfg` is missing or unreadable it refuses to touch
+  addresses, routes or DHCP;
+- derives the /64 from `uiwwand-ctl get-ipv6-settings` (`ipv6-ui-prefix`)
+  instead of splitting a possibly compressed address;
 - sets `dhcp.ipv6.ra='server'` and restarts/reloads `odhcpd` when 1.5.5 has
   disabled RAs (idempotent, because the firmware can regenerate the file);
 - probes the CLAT IPv4 path as a warning only (`clat_enabled=false` is a
